@@ -46,53 +46,56 @@
     <div class="page-section active" id="section-overview">
 
       <!-- Stats row -->
-      <div class="stats-grid" id="stats-grid">
-        <div class="stat-card stat-accent-blue">
-          <div class="stat-label">Total Tokens Used</div>
-          <div class="stat-value" id="stat-total-tokens">—</div>
-          <div class="stat-meta" id="stat-tokens-today">Loading...</div>
+      <div class="premium-stats-grid" id="stats-grid">
+        <div class="premium-stat-card">
+          <div class="premium-glow glow-blue"></div>
+          <div class="premium-stat-label">Total Tokens Used</div>
+          <div class="premium-stat-value text-gradient-blue" id="stat-total-tokens">—</div>
+          <div class="premium-stat-meta" id="stat-tokens-today">Loading...</div>
         </div>
-        <div class="stat-card stat-accent-green">
-          <div class="stat-label">Estimated Cost</div>
-          <div class="stat-value" id="stat-total-cost">—</div>
-          <div class="stat-meta">All time (USD)</div>
+        <div class="premium-stat-card">
+          <div class="premium-glow glow-green"></div>
+          <div class="premium-stat-label">Estimated Cost</div>
+          <div class="premium-stat-value text-gradient-green" id="stat-total-cost">—</div>
+          <div class="premium-stat-meta">All time (USD)</div>
         </div>
-        <div class="stat-card">
-          <div class="stat-label">Active Keys</div>
-          <div class="stat-value" id="stat-active-keys">—</div>
-          <div class="stat-meta">Virtual API keys</div>
+        <div class="premium-stat-card">
+          <div class="premium-stat-label">Active Keys</div>
+          <div class="premium-stat-value text-gradient-white" id="stat-active-keys">—</div>
+          <div class="premium-stat-meta">Virtual API keys</div>
         </div>
-        <div class="stat-card stat-accent-amber">
-          <div class="stat-label">Requests Today</div>
-          <div class="stat-value" id="stat-requests-today">—</div>
-          <div class="stat-meta" id="stat-blocked-today">Loading...</div>
+        <div class="premium-stat-card">
+          <div class="premium-glow glow-amber"></div>
+          <div class="premium-stat-label">Requests Today</div>
+          <div class="premium-stat-value text-gradient-amber" id="stat-requests-today">—</div>
+          <div class="premium-stat-meta" id="stat-blocked-today">Loading...</div>
         </div>
       </div>
 
       <!-- Chart + top models -->
       <div class="two-col">
-        <div class="card">
-          <div class="card-header">
-            <span class="card-title">Token Consumption</span>
+        <div class="premium-card">
+          <div class="premium-card-header">
+            <span class="premium-card-title">Token Consumption</span>
             <div class="period-selector">
               <button class="period-btn active" onclick="changeChartRange(7, this)">7d</button>
               <button class="period-btn" onclick="changeChartRange(14, this)">14d</button>
               <button class="period-btn" onclick="changeChartRange(30, this)">30d</button>
             </div>
           </div>
-          <div class="card-body">
+          <div class="premium-card-body">
             <div class="chart-container">
               <canvas id="usage-chart"></canvas>
             </div>
           </div>
         </div>
 
-        <div class="card">
-          <div class="card-header">
-            <span class="card-title">Top Models</span>
+        <div class="premium-card">
+          <div class="premium-card-header">
+            <span class="premium-card-title">Top Models</span>
             <button class="btn btn-ghost btn-sm" onclick="loadModelStats()">Refresh</button>
           </div>
-          <div class="card-body" id="model-stats-body">
+          <div class="premium-card-body" id="model-stats-body">
             <div class="empty-state">
               <div class="empty-state-title">No data yet</div>
               <div class="empty-state-desc">Usage statistics will appear once requests are proxied.</div>
@@ -102,12 +105,12 @@
       </div>
 
       <!-- Recent activity preview -->
-      <div class="card">
-        <div class="card-header">
-          <span class="card-title">Recent Activity</span>
+      <div class="premium-card">
+        <div class="premium-card-header">
+          <span class="premium-card-title">Recent Activity</span>
           <button class="btn btn-ghost btn-sm" onclick="loadRecentLogs(); switchTab('logs', document.getElementById('tab-logs'))">View all</button>
         </div>
-        <div class="card-body" id="overview-logs-body">
+        <div class="premium-card-body" style="padding:0;" id="overview-logs-body">
           <div class="empty-state">
             <div class="empty-state-title">No activity recorded</div>
             <div class="empty-state-desc">Configure your AI tool to use <code>http://localhost:8000/v1</code> as the base URL.</div>
