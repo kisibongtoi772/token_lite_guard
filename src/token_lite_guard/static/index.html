@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>token_lite_guard — AI Gateway Dashboard</title>
-  <meta name="description" content="Protect your LLM budget. Monitor token usage, manage virtual API keys, and enforce spending limits for AI agents in real-time." />
+  <title>token_lite_guard</title>
+  <meta name="description" content="Local AI Gateway — monitor token usage, manage virtual API keys, and enforce spending limits." />
   <link rel="stylesheet" href="/static/style.css" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
@@ -14,129 +14,216 @@
   <!-- ─── Header ─────────────────────────────────────────────── -->
   <header class="header">
     <a href="/" class="logo">
-      <div class="logo-icon">🛡️</div>
-      <div class="logo-text">token_<span>lite</span>_guard</div>
-    </a>
-    <div class="header-right">
-      <div class="status-badge">
-        <div class="status-dot"></div>
-        <span id="server-status">Gateway Active</span>
+      <div class="logo-mark">
+        <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+          <path d="M8 1L2 4v4c0 3.3 2.5 6.4 6 7.2C11.5 14.4 14 11.3 14 8V4L8 1z"/>
+        </svg>
       </div>
-      <button id="btn-new-key" class="btn btn-primary" onclick="openCreateModal()">
-        <span>＋</span> New Key
-      </button>
+      <span class="logo-name">token_lite_guard</span>
+    </a>
+
+    <nav class="nav-tabs" role="tablist">
+      <button class="nav-tab active" role="tab" onclick="switchTab('overview', this)" id="tab-overview">Overview</button>
+      <button class="nav-tab" role="tab" onclick="switchTab('keys', this)" id="tab-keys">Virtual Keys</button>
+      <button class="nav-tab" role="tab" onclick="switchTab('providers', this)" id="tab-providers">Providers</button>
+      <button class="nav-tab" role="tab" onclick="switchTab('logs', this)" id="tab-logs">Activity</button>
+    </nav>
+
+    <div class="header-actions">
+      <div class="status-indicator">
+        <div class="status-dot"></div>
+        <span id="server-status-label">Running</span>
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="openModal('create-key-modal')">New Key</button>
     </div>
   </header>
 
   <!-- ─── Main ───────────────────────────────────────────────── -->
-  <main class="main">
+  <main class="main" role="main">
 
-    <!-- Page title -->
-    <h1 class="page-title">Dashboard</h1>
-    <p class="page-subtitle" id="last-refresh">Loading overview...</p>
+    <!-- ===== OVERVIEW TAB ===== -->
+    <div class="page-section active" id="section-overview">
 
-    <!-- ─── Stats Cards ──────────────────────────────────────── -->
-    <div class="stats-grid" id="stats-grid">
-      <div class="stat-card blue">
-        <div class="stat-icon blue">🔢</div>
-        <div class="stat-label">Total Tokens</div>
-        <div class="stat-value" id="stat-total-tokens">—</div>
-        <div class="stat-sub" id="stat-tokens-today">— today</div>
+      <!-- Stats row -->
+      <div class="stats-grid" id="stats-grid">
+        <div class="stat-card stat-accent-blue">
+          <div class="stat-label">Total Tokens Used</div>
+          <div class="stat-value" id="stat-total-tokens">—</div>
+          <div class="stat-meta" id="stat-tokens-today">Loading...</div>
+        </div>
+        <div class="stat-card stat-accent-green">
+          <div class="stat-label">Estimated Cost</div>
+          <div class="stat-value" id="stat-total-cost">—</div>
+          <div class="stat-meta">All time (USD)</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Active Keys</div>
+          <div class="stat-value" id="stat-active-keys">—</div>
+          <div class="stat-meta">Virtual API keys</div>
+        </div>
+        <div class="stat-card stat-accent-amber">
+          <div class="stat-label">Requests Today</div>
+          <div class="stat-value" id="stat-requests-today">—</div>
+          <div class="stat-meta" id="stat-blocked-today">Loading...</div>
+        </div>
       </div>
-      <div class="stat-card purple">
-        <div class="stat-icon purple">💰</div>
-        <div class="stat-label">Estimated Cost</div>
-        <div class="stat-value" id="stat-total-cost">—</div>
-        <div class="stat-sub">All time (USD)</div>
-      </div>
-      <div class="stat-card green">
-        <div class="stat-icon green">🔑</div>
-        <div class="stat-label">Active Keys</div>
-        <div class="stat-value" id="stat-active-keys">—</div>
-        <div class="stat-sub">Virtual API keys</div>
-      </div>
-      <div class="stat-card orange">
-        <div class="stat-icon orange">⚡</div>
-        <div class="stat-label">Requests Today</div>
-        <div class="stat-value" id="stat-requests-today">—</div>
-        <div class="stat-sub" id="stat-blocked-today">— blocked</div>
-      </div>
-    </div>
 
-    <!-- ─── Charts + Sidebar ─────────────────────────────────── -->
-    <div class="content-grid">
-
-      <!-- Chart Panel -->
-      <div class="panel">
-        <div class="panel-header">
-          <span class="panel-title">📈 Token Consumption</span>
-          <div class="tabs" style="margin-bottom:0; flex:0;">
-            <button class="tab active" onclick="changeChartRange(7, this)">7d</button>
-            <button class="tab" onclick="changeChartRange(14, this)">14d</button>
-            <button class="tab" onclick="changeChartRange(30, this)">30d</button>
+      <!-- Chart + top models -->
+      <div class="two-col">
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Token Consumption</span>
+            <div class="period-selector">
+              <button class="period-btn active" onclick="changeChartRange(7, this)">7d</button>
+              <button class="period-btn" onclick="changeChartRange(14, this)">14d</button>
+              <button class="period-btn" onclick="changeChartRange(30, this)">30d</button>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="chart-container">
+              <canvas id="usage-chart"></canvas>
+            </div>
           </div>
         </div>
-        <div class="panel-body">
-          <div class="chart-container">
-            <canvas id="usage-chart"></canvas>
+
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Top Models</span>
+            <button class="btn btn-ghost btn-sm" onclick="loadModelStats()">Refresh</button>
+          </div>
+          <div class="card-body" id="model-stats-body">
+            <div class="empty-state">
+              <div class="empty-state-title">No data yet</div>
+              <div class="empty-state-desc">Usage statistics will appear once requests are proxied.</div>
+            </div>
           </div>
         </div>
       </div>
 
-      <!-- Quick stats sidebar -->
-      <div class="panel">
-        <div class="panel-header">
-          <span class="panel-title">🔥 Top Models</span>
-          <button class="btn btn-ghost btn-sm" onclick="loadModelStats()">↻ Refresh</button>
+      <!-- Recent activity preview -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Recent Activity</span>
+          <button class="btn btn-ghost btn-sm" onclick="loadRecentLogs(); switchTab('logs', document.getElementById('tab-logs'))">View all</button>
         </div>
-        <div class="panel-body" id="model-stats-body">
+        <div class="card-body" id="overview-logs-body">
           <div class="empty-state">
-            <div class="empty-state-icon">📊</div>
-            <div class="empty-state-text">No data yet</div>
+            <div class="empty-state-title">No activity recorded</div>
+            <div class="empty-state-desc">Configure your AI tool to use <code>http://localhost:8000/v1</code> as the base URL.</div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- ─── Virtual Keys Table ────────────────────────────────── -->
-    <div class="panel" style="margin-bottom: 24px;">
-      <div class="panel-header">
-        <span class="panel-title">🔑 Virtual API Keys</span>
-        <div style="display:flex; gap:8px;">
-          <button class="btn btn-ghost btn-sm" onclick="loadKeys()">↻ Refresh</button>
-          <button class="btn btn-primary btn-sm" onclick="openCreateModal()">＋ New Key</button>
+    <!-- ===== KEYS TAB ===== -->
+    <div class="page-section" id="section-keys">
+      <div class="section-header">
+        <div>
+          <div class="section-title">Virtual API Keys</div>
+          <div class="section-subtitle">Each key has an independent token budget and can target a specific provider.</div>
         </div>
+        <button class="btn btn-primary" onclick="openModal('create-key-modal')">New Key</button>
       </div>
-      <div class="table-wrapper">
-        <table id="keys-table">
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Key</th>
-              <th>Provider</th>
-              <th>Budget Usage</th>
-              <th>Status</th>
-              <th>Created</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody id="keys-tbody">
-            <tr><td colspan="7" style="text-align:center; padding:32px; color:var(--text-muted);">Loading keys...</td></tr>
-          </tbody>
-        </table>
+
+      <div class="card">
+        <div class="table-wrap">
+          <table id="keys-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Key</th>
+                <th>Provider</th>
+                <th>Budget</th>
+                <th>Status</th>
+                <th>Created</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="keys-tbody">
+              <tr><td colspan="7" style="text-align:center; padding:40px; color:var(--text-muted);">Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
 
-    <!-- ─── Recent Activity Log ───────────────────────────────── -->
-    <div class="panel">
-      <div class="panel-header">
-        <span class="panel-title">📋 Recent Activity</span>
-        <button class="btn btn-ghost btn-sm" onclick="loadRecentLogs()">↻ Refresh</button>
+    <!-- ===== PROVIDERS TAB ===== -->
+    <div class="page-section" id="section-providers">
+
+      <!-- Built-in providers -->
+      <div class="section-header">
+        <div>
+          <div class="section-title">Built-in Providers</div>
+          <div class="section-subtitle">Configure API keys in your <code>.env</code> file to activate a provider.</div>
+        </div>
       </div>
-      <div class="panel-body" id="logs-body">
-        <div class="empty-state">
-          <div class="empty-state-icon">📭</div>
-          <div class="empty-state-text">No recent activity</div>
+
+      <div class="provider-grid" id="builtin-providers-grid">
+        <div style="color:var(--text-muted); font-size:13px;">Loading...</div>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- Custom providers -->
+      <div class="section-header">
+        <div>
+          <div class="section-title">Custom Providers</div>
+          <div class="section-subtitle">Connect any OpenAI-compatible endpoint — vLLM, LiteLLM, self-hosted models, or third-party proxies.</div>
+        </div>
+        <button class="btn btn-primary" onclick="openModal('create-provider-modal')">Add Provider</button>
+      </div>
+
+      <div class="card" id="custom-providers-card">
+        <div class="table-wrap">
+          <table id="custom-providers-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Endpoint</th>
+                <th>Auth Style</th>
+                <th>Pricing (Input / Output per 1M)</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="custom-providers-tbody">
+              <tr><td colspan="6" style="text-align:center; padding:40px; color:var(--text-muted);">Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== LOGS TAB ===== -->
+    <div class="page-section" id="section-logs">
+      <div class="section-header">
+        <div>
+          <div class="section-title">Activity Log</div>
+          <div class="section-subtitle">All proxied requests, including blocked and errored ones.</div>
+        </div>
+        <button class="btn btn-secondary btn-sm" onclick="loadRecentLogs()">Refresh</button>
+      </div>
+
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Status</th>
+                <th>Key</th>
+                <th>Model</th>
+                <th>Provider</th>
+                <th>Input Tokens</th>
+                <th>Output Tokens</th>
+                <th>Cost (USD)</th>
+                <th>Latency</th>
+                <th>Time</th>
+              </tr>
+            </thead>
+            <tbody id="logs-tbody">
+              <tr><td colspan="9" style="text-align:center; padding:40px; color:var(--text-muted);">Loading...</td></tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
@@ -145,70 +232,59 @@
 </div>
 
 <!-- ─── Create Key Modal ──────────────────────────────────────── -->
-<div class="modal-overlay" id="create-modal" onclick="handleModalOverlayClick(event)">
+<div class="modal-overlay" id="create-key-modal" onclick="handleOverlayClick(event, 'create-key-modal')">
   <div class="modal" onclick="event.stopPropagation()">
     <div class="modal-header">
       <div class="modal-title">Create Virtual API Key</div>
-      <button class="modal-close" onclick="closeCreateModal()">✕</button>
+      <button class="modal-close" onclick="closeModal('create-key-modal')" aria-label="Close">&#x2715;</button>
     </div>
     <div class="modal-body">
       <div class="form-group">
-        <label class="form-label" for="new-key-name">Key Name</label>
-        <input
-          id="new-key-name"
-          class="form-input"
-          type="text"
-          placeholder="e.g. cursor-dev, agent-prod"
-          maxlength="100"
-        />
-        <div class="form-hint">A human-readable label for this key</div>
+        <label class="form-label" for="new-key-name">Key Name <span style="color:var(--red)">*</span></label>
+        <input id="new-key-name" class="form-input" type="text" placeholder="e.g. cursor-workspace, agent-prod" maxlength="100" />
+        <div class="form-hint">A descriptive label to identify this key.</div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label" for="new-key-provider">Provider <span style="color:var(--red)">*</span></label>
+          <select id="new-key-provider" class="form-select">
+            <option value="openai">OpenAI</option>
+            <option value="anthropic">Anthropic</option>
+            <option value="google">Google Gemini</option>
+            <option value="mistral">Mistral AI</option>
+            <option value="groq">Groq</option>
+            <option value="together">Together AI</option>
+            <option value="deepseek">DeepSeek</option>
+            <option value="cohere">Cohere</option>
+            <option value="azure">Azure OpenAI</option>
+            <option value="ollama">Ollama (Local)</option>
+            <option value="lmstudio">LM Studio (Local)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="new-key-budget">Token Budget</label>
+          <input id="new-key-budget" class="form-input" type="number" placeholder="100000" min="0" value="100000" />
+          <div class="form-hint">0 = unlimited</div>
+        </div>
       </div>
       <div class="form-group">
-        <label class="form-label" for="new-key-provider">Provider</label>
-        <select id="new-key-provider" class="form-select">
-          <option value="openai">OpenAI (gpt-*)</option>
-          <option value="anthropic">Anthropic (claude-*)</option>
-          <option value="auto">Auto-detect from model name</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label class="form-label" for="new-key-budget">Token Budget</label>
-        <input
-          id="new-key-budget"
-          class="form-input"
-          type="number"
-          placeholder="100000"
-          min="0"
-          value="100000"
-        />
-        <div class="form-hint">0 = unlimited. When exhausted, requests return HTTP 429.</div>
-      </div>
-      <div class="form-group">
-        <label class="form-label" for="new-key-notes">Notes (optional)</label>
-        <input
-          id="new-key-notes"
-          class="form-input"
-          type="text"
-          placeholder="What is this key used for?"
-          maxlength="500"
-        />
+        <label class="form-label" for="new-key-notes">Notes</label>
+        <input id="new-key-notes" class="form-input" type="text" placeholder="Optional description" maxlength="500" />
       </div>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-ghost" onclick="closeCreateModal()">Cancel</button>
-      <button class="btn btn-primary" onclick="createKey()" id="btn-create-key">
-        Create Key
-      </button>
+      <button class="btn btn-ghost" onclick="closeModal('create-key-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="createKey()" id="btn-create-key">Create Key</button>
     </div>
   </div>
 </div>
 
 <!-- ─── Edit Key Modal ────────────────────────────────────────── -->
-<div class="modal-overlay" id="edit-modal" onclick="handleEditOverlayClick(event)">
+<div class="modal-overlay" id="edit-key-modal" onclick="handleOverlayClick(event, 'edit-key-modal')">
   <div class="modal" onclick="event.stopPropagation()">
     <div class="modal-header">
       <div class="modal-title">Edit Key</div>
-      <button class="modal-close" onclick="closeEditModal()">✕</button>
+      <button class="modal-close" onclick="closeModal('edit-key-modal')" aria-label="Close">&#x2715;</button>
     </div>
     <div class="modal-body">
       <input type="hidden" id="edit-key-id" />
@@ -216,10 +292,18 @@
         <label class="form-label" for="edit-key-name">Key Name</label>
         <input id="edit-key-name" class="form-input" type="text" maxlength="100" />
       </div>
-      <div class="form-group">
-        <label class="form-label" for="edit-key-budget">Token Budget</label>
-        <input id="edit-key-budget" class="form-input" type="number" min="0" />
-        <div class="form-hint">0 = unlimited</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label" for="edit-key-budget">Token Budget</label>
+          <input id="edit-key-budget" class="form-input" type="number" min="0" />
+          <div class="form-hint">0 = unlimited</div>
+        </div>
+        <div class="form-group" style="display:flex; align-items:center; padding-top:22px;">
+          <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:13px; color:var(--text-primary);">
+            <input type="checkbox" id="edit-key-active" style="width:16px; height:16px; cursor:pointer;" />
+            Active
+          </label>
+        </div>
       </div>
       <div class="form-group">
         <label class="form-label" for="edit-key-notes">Notes</label>
@@ -227,14 +311,131 @@
       </div>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-ghost" onclick="closeEditModal()">Cancel</button>
+      <button class="btn btn-ghost" onclick="closeModal('edit-key-modal')">Cancel</button>
       <button class="btn btn-primary" onclick="saveKeyEdit()">Save Changes</button>
     </div>
   </div>
 </div>
 
-<!-- ─── Toast container ───────────────────────────────────────── -->
-<div class="toast-container" id="toast-container"></div>
+<!-- ─── Create Provider Modal ─────────────────────────────────── -->
+<div class="modal-overlay" id="create-provider-modal" onclick="handleOverlayClick(event, 'create-provider-modal')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-title">Add Custom Provider</div>
+      <button class="modal-close" onclick="closeModal('create-provider-modal')" aria-label="Close">&#x2715;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label" for="np-name">Identifier <span style="color:var(--red)">*</span></label>
+          <input id="np-name" class="form-input" type="text" placeholder="e.g. my-vllm" pattern="[a-z0-9\-_]+" />
+          <div class="form-hint">Lowercase slug. Used as the provider value in virtual keys.</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="np-display-name">Display Name <span style="color:var(--red)">*</span></label>
+          <input id="np-display-name" class="form-input" type="text" placeholder="e.g. My vLLM Server" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="np-base-url">Base URL <span style="color:var(--red)">*</span></label>
+        <input id="np-base-url" class="form-input" type="url" placeholder="http://localhost:8080/v1" />
+        <div class="form-hint">OpenAI-compatible endpoint base URL (include /v1 suffix).</div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label" for="np-auth-style">Auth Style</label>
+          <select id="np-auth-style" class="form-select">
+            <option value="bearer">Bearer token (Authorization: Bearer ...)</option>
+            <option value="x-api-key">x-api-key header (Anthropic style)</option>
+            <option value="api-key">api-key header (Azure style)</option>
+            <option value="none">No authentication</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="np-api-key">API Key</label>
+          <input id="np-api-key" class="form-input" type="password" placeholder="Leave empty if not required" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label" for="np-input-cost">Input Cost ($/1M tokens)</label>
+          <input id="np-input-cost" class="form-input" type="number" min="0" step="0.01" placeholder="0.00" />
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="np-output-cost">Output Cost ($/1M tokens)</label>
+          <input id="np-output-cost" class="form-input" type="number" min="0" step="0.01" placeholder="0.00" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="np-description">Description</label>
+        <input id="np-description" class="form-input" type="text" placeholder="Optional notes" maxlength="500" />
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('create-provider-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="createProvider()" id="btn-create-provider">Add Provider</button>
+    </div>
+  </div>
+</div>
+
+<!-- ─── Edit Provider Modal ───────────────────────────────────── -->
+<div class="modal-overlay" id="edit-provider-modal" onclick="handleOverlayClick(event, 'edit-provider-modal')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-title">Edit Provider</div>
+      <button class="modal-close" onclick="closeModal('edit-provider-modal')" aria-label="Close">&#x2715;</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="ep-id" />
+      <div class="form-group">
+        <label class="form-label" for="ep-display-name">Display Name</label>
+        <input id="ep-display-name" class="form-input" type="text" />
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="ep-base-url">Base URL</label>
+        <input id="ep-base-url" class="form-input" type="url" />
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label" for="ep-auth-style">Auth Style</label>
+          <select id="ep-auth-style" class="form-select">
+            <option value="bearer">Bearer token</option>
+            <option value="x-api-key">x-api-key header</option>
+            <option value="api-key">api-key header</option>
+            <option value="none">No authentication</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="ep-api-key">API Key (leave blank to keep existing)</label>
+          <input id="ep-api-key" class="form-input" type="password" placeholder="Enter to update" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label" for="ep-input-cost">Input Cost ($/1M)</label>
+          <input id="ep-input-cost" class="form-input" type="number" min="0" step="0.01" />
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="ep-output-cost">Output Cost ($/1M)</label>
+          <input id="ep-output-cost" class="form-input" type="number" min="0" step="0.01" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="ep-description">Description</label>
+        <input id="ep-description" class="form-input" type="text" maxlength="500" />
+      </div>
+      <div id="ep-test-result" class="test-result"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="testProvider()" id="btn-test-provider">Test Connection</button>
+      <button class="btn btn-ghost" onclick="closeModal('edit-provider-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveProviderEdit()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- ─── Toasts ────────────────────────────────────────────────── -->
+<div class="toast-container" id="toast-container" aria-live="polite"></div>
 
 <script src="/static/app.js"></script>
 </body>

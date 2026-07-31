@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 token_lite_guard — Quick start script
-Usage: python run.py
+Usage: python3 run.py
 """
 
 import sys
@@ -17,7 +17,7 @@ from token_lite_guard.config import get_settings
 
 if __name__ == "__main__":
     settings = get_settings()
-    print(f"\n🛡️  token_lite_guard starting on http://localhost:{settings.port}\n")
+    print(f"\ntoken_lite_guard starting on http://localhost:{settings.port}\n")
     uvicorn.run(
         "token_lite_guard.main:app",
         host=settings.host,

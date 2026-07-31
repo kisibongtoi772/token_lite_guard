@@ -3,7 +3,7 @@
 import json
 import logging
 import time
-from datetime import datetime
+from typing import Optional
 
 from fastapi import APIRouter, BackgroundTasks, Request
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -12,7 +12,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from ..config import get_settings
 from ..database import get_engine
-from ..models import ModelPricing, UsageLog, VirtualKey
+from ..models import CustomProvider, ModelPricing, UsageLog, VirtualKey
 from .forwarder import (
     build_upstream_url,
     detect_provider,
@@ -26,10 +26,12 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["proxy"])
 
 
-# ─── Helpers ────────────────────────────────────────────────────────────────
+# ---------------------------------------------------------------------------
+# Internal helpers
+# ---------------------------------------------------------------------------
 
-def _extract_virtual_key(request: Request) -> str | None:
-    """Extract the virtual key from Authorization header."""
+def _extract_virtual_key(request: Request) -> Optional[str]:
+    """Extract the Bearer token from the Authorization header."""
     auth = request.headers.get("authorization", "")
     if auth.lower().startswith("bearer "):
         return auth[7:].strip()
@@ -37,7 +39,7 @@ def _extract_virtual_key(request: Request) -> str | None:
 
 
 def _error_response(status: int, message: str, code: str = "error") -> JSONResponse:
-    """Return an OpenAI-compatible error JSON response."""
+    """Return an OpenAI-compatible error envelope."""
     return JSONResponse(
         status_code=status,
         content={
@@ -51,7 +53,7 @@ def _error_response(status: int, message: str, code: str = "error") -> JSONRespo
 
 
 async def _get_pricing(session: AsyncSession) -> list[dict]:
-    """Load all pricing entries from DB."""
+    """Fetch all pricing records from the database."""
     result = await session.exec(select(ModelPricing))
     return [
         {
@@ -63,18 +65,32 @@ async def _get_pricing(session: AsyncSession) -> list[dict]:
     ]
 
 
+async def _resolve_custom_provider(
+    provider_name: str,
+    session: AsyncSession,
+) -> Optional[CustomProvider]:
+    """Look up a custom provider by name. Returns None for built-in providers."""
+    result = await session.exec(
+        select(CustomProvider).where(
+            CustomProvider.name == provider_name,
+            CustomProvider.is_active == True,
+        )
+    )
+    return result.first()
+
+
 async def _log_usage(
-    virtual_key: VirtualKey | None,
+    virtual_key: Optional[VirtualKey],
     model: str,
     provider: str,
     input_tokens: int,
     output_tokens: int,
     status: str,
     pricing_data: list[dict],
-    latency_ms: int | None = None,
-    error_message: str | None = None,
+    latency_ms: Optional[int] = None,
+    error_message: Optional[str] = None,
 ) -> None:
-    """Write a usage log entry and deduct tokens from the virtual key budget."""
+    """Write a usage log entry and deduct tokens from the virtual key."""
     engine = get_engine()
     total = input_tokens + output_tokens
     cost = estimate_cost(input_tokens, output_tokens, model, pricing_data)
@@ -95,7 +111,6 @@ async def _log_usage(
         )
         session.add(log)
 
-        # Deduct tokens from the virtual key
         if virtual_key and status == "success":
             result = await session.exec(
                 select(VirtualKey).where(VirtualKey.id == virtual_key.id)
@@ -108,7 +123,9 @@ async def _log_usage(
         await session.commit()
 
 
-# ─── Main Proxy Endpoint ─────────────────────────────────────────────────────
+# ---------------------------------------------------------------------------
+# Main proxy endpoint
+# ---------------------------------------------------------------------------
 
 @router.api_route(
     "/v1/{path:path}",
@@ -116,23 +133,26 @@ async def _log_usage(
 )
 async def proxy(request: Request, path: str, background_tasks: BackgroundTasks):
     """
-    The main proxy handler.
-    1. Extract & validate virtual key
-    2. Check budget
-    3. Forward to upstream LLM
-    4. Stream response back
-    5. Deduct tokens in background
+    Core proxy handler — 6-step pipeline:
+
+    1. Extract virtual key from Authorization header
+    2. Validate virtual key against database
+    3. Enforce token budget (HTTP 429 on exhaustion)
+    4. Resolve provider config (built-in or custom)
+    5. Forward request to upstream LLM
+    6. Stream response back, deduct tokens in background
     """
     start_time = time.monotonic()
     settings = get_settings()
 
-    # 1. Extract virtual key
+    # Step 1 — extract virtual key
     virtual_key_value = _extract_virtual_key(request)
     if not virtual_key_value:
-        return _error_response(401, "Missing Authorization header with Bearer token.", "unauthorized")
+        return _error_response(401, "Missing Authorization header. Provide a virtual key as: Bearer <key>", "unauthorized")
 
-    # 2. Lookup virtual key in DB
     engine = get_engine()
+
+    # Step 2 — validate virtual key
     async with AsyncSession(engine, expire_on_commit=False) as session:
         result = await session.exec(
             select(VirtualKey).where(
@@ -145,7 +165,7 @@ async def proxy(request: Request, path: str, background_tasks: BackgroundTasks):
     if not virtual_key:
         return _error_response(401, "Invalid or inactive virtual API key.", "invalid_key")
 
-    # 3. Read request body
+    # Step 3 — read request body and count input tokens
     body = await request.body()
     model = "gpt-4o"
     is_streaming = False
@@ -157,90 +177,97 @@ async def proxy(request: Request, path: str, background_tasks: BackgroundTasks):
         is_streaming = body_json.get("stream", False)
         messages = body_json.get("messages", [])
         input_tokens = count_messages_tokens(messages, model)
-    except (json.JSONDecodeError, Exception):
+    except Exception:
         pass
 
     provider = virtual_key.provider or detect_provider(model)
 
-    # 4. Budget check
-    if virtual_key.budget_tokens > 0:
-        remaining = virtual_key.remaining_tokens
-        if remaining <= 0:
-            logger.warning(f"Budget exhausted for key '{virtual_key.name}' (id={virtual_key.id})")
-            async with AsyncSession(engine, expire_on_commit=False) as session:
-                pricing_data = await _get_pricing(session)
-            background_tasks.add_task(
-                _log_usage, virtual_key, model, provider,
-                input_tokens, 0, "blocked", pricing_data,
-            )
-            return _error_response(
-                429,
-                f"Budget exhausted. Key '{virtual_key.name}' has used {virtual_key.used_tokens}/{virtual_key.budget_tokens} tokens.",
-                "budget_exceeded",
-            )
-
-    # 5. Get real API key
-    real_api_key = settings.get_real_api_key(provider)
-    if not real_api_key:
+    # Step 4 — budget enforcement
+    if virtual_key.budget_tokens > 0 and virtual_key.remaining_tokens <= 0:
+        logger.warning("Budget exhausted for key '%s' (id=%d)", virtual_key.name, virtual_key.id)
+        async with AsyncSession(engine, expire_on_commit=False) as session:
+            pricing_data = await _get_pricing(session)
+        background_tasks.add_task(
+            _log_usage, virtual_key, model, provider,
+            input_tokens, 0, "blocked", pricing_data,
+        )
         return _error_response(
-            500,
-            f"No real API key configured for provider '{provider}'. Set {provider.upper()}_API_KEY in .env",
-            "provider_not_configured",
+            429,
+            f"Budget exhausted. Key '{virtual_key.name}' has consumed "
+            f"{virtual_key.used_tokens:,} of {virtual_key.budget_tokens:,} tokens.",
+            "budget_exceeded",
         )
 
-    # 6. Build upstream URL
-    upstream_url = build_upstream_url(provider, f"/v1/{path}")
-    logger.info(f"Proxying {request.method} /v1/{path} → {upstream_url} [{model}]")
-
-    # Load pricing for cost calculation
+    # Step 5 — resolve provider credentials and endpoint
     async with AsyncSession(engine, expire_on_commit=False) as session:
         pricing_data = await _get_pricing(session)
+        custom_provider = await _resolve_custom_provider(provider, session)
 
-    # 7. Forward the request
+    if custom_provider:
+        real_api_key = custom_provider.api_key or "no-key"
+        auth_style = custom_provider.auth_style
+        upstream_url = build_upstream_url(provider, f"/v1/{path}", custom_base_url=custom_provider.base_url)
+        extra_headers = None
+    else:
+        real_api_key = settings.get_real_api_key(provider) or ""
+        auth_style = settings.get_auth_style(provider)
+        extra_headers = None
+
+        if not real_api_key:
+            return _error_response(
+                500,
+                f"No API key configured for provider '{provider}'. "
+                f"Set {provider.upper()}_API_KEY in your .env file.",
+                "provider_not_configured",
+            )
+
+        upstream_url = build_upstream_url(provider, f"/v1/{path}")
+
+        # Azure requires additional query parameters
+        if provider == "azure" and settings.azure_openai_api_version:
+            upstream_url += f"?api-version={settings.azure_openai_api_version}"
+
+    logger.info("Proxying %s /v1/%s -> %s [model=%s, key=%s]",
+                request.method, path, upstream_url, model, virtual_key.name)
+
+    # Step 6 — forward
+    kwargs = dict(
+        body=body,
+        real_api_key=real_api_key,
+        auth_style=auth_style,
+        extra_headers=extra_headers,
+    )
+
     if is_streaming:
         return await _handle_streaming(
-            request=request,
-            body=body,
-            upstream_url=upstream_url,
-            model=model,
-            provider=provider,
-            real_api_key=real_api_key,
-            virtual_key=virtual_key,
-            input_tokens=input_tokens,
-            pricing_data=pricing_data,
-            start_time=start_time,
-            background_tasks=background_tasks,
+            request, upstream_url, model, provider, virtual_key,
+            input_tokens, pricing_data, start_time, background_tasks, **kwargs,
         )
-    else:
-        return await _handle_non_streaming(
-            request=request,
-            body=body,
-            upstream_url=upstream_url,
-            model=model,
-            provider=provider,
-            real_api_key=real_api_key,
-            virtual_key=virtual_key,
-            input_tokens=input_tokens,
-            pricing_data=pricing_data,
-            start_time=start_time,
-            background_tasks=background_tasks,
-        )
+    return await _handle_non_streaming(
+        request, upstream_url, model, provider, virtual_key,
+        input_tokens, pricing_data, start_time, background_tasks, **kwargs,
+    )
 
+
+# ---------------------------------------------------------------------------
+# Response handlers
+# ---------------------------------------------------------------------------
 
 async def _handle_streaming(
     request: Request,
-    body: bytes,
     upstream_url: str,
     model: str,
     provider: str,
-    real_api_key: str,
     virtual_key: VirtualKey,
     input_tokens: int,
     pricing_data: list[dict],
     start_time: float,
     background_tasks: BackgroundTasks,
+    body: bytes,
+    real_api_key: str,
+    auth_style: str,
+    extra_headers,
 ) -> StreamingResponse:
-    """Handle streaming response: yield chunks while counting output tokens."""
     total_output_tokens = 0
 
     async def generate():
@@ -252,23 +279,20 @@ async def _handle_streaming(
                 headers=dict(request.headers),
                 body=body,
                 real_api_key=real_api_key,
-                provider=provider,
+                auth_style=auth_style,
+                extra_headers=extra_headers,
             ):
                 total_output_tokens += chunk_tokens
                 yield chunk
-        except Exception as e:
-            logger.error(f"Streaming error: {e}")
-            error_payload = json.dumps({
-                "error": {"message": str(e), "type": "proxy_error"}
-            })
+        except Exception as exc:
+            logger.error("Streaming error: %s", exc)
+            error_payload = json.dumps({"error": {"message": str(exc), "type": "proxy_error"}})
             yield f"data: {error_payload}\n\n".encode()
         finally:
             latency_ms = int((time.monotonic() - start_time) * 1000)
             background_tasks.add_task(
-                _log_usage,
-                virtual_key, model, provider,
-                input_tokens, total_output_tokens,
-                "success", pricing_data, latency_ms,
+                _log_usage, virtual_key, model, provider,
+                input_tokens, total_output_tokens, "success", pricing_data, latency_ms,
             )
 
     return StreamingResponse(
@@ -277,25 +301,26 @@ async def _handle_streaming(
         headers={
             "Cache-Control": "no-cache",
             "X-Accel-Buffering": "no",
-            "X-TLG-Key": virtual_key.name,
+            "X-TLG-Virtual-Key": virtual_key.name,
         },
     )
 
 
 async def _handle_non_streaming(
     request: Request,
-    body: bytes,
     upstream_url: str,
     model: str,
     provider: str,
-    real_api_key: str,
     virtual_key: VirtualKey,
     input_tokens: int,
     pricing_data: list[dict],
     start_time: float,
     background_tasks: BackgroundTasks,
+    body: bytes,
+    real_api_key: str,
+    auth_style: str,
+    extra_headers,
 ) -> JSONResponse:
-    """Handle non-streaming response."""
     try:
         status_code, resp_headers, resp_body = await forward_non_streaming(
             url=upstream_url,
@@ -303,12 +328,11 @@ async def _handle_non_streaming(
             headers=dict(request.headers),
             body=body,
             real_api_key=real_api_key,
-            provider=provider,
+            auth_style=auth_style,
+            extra_headers=extra_headers,
         )
-
         latency_ms = int((time.monotonic() - start_time) * 1000)
 
-        # Extract actual token usage from response if available
         output_tokens = 0
         try:
             resp_json = json.loads(resp_body)
@@ -321,18 +345,15 @@ async def _handle_non_streaming(
 
         status = "success" if status_code < 400 else "error"
         background_tasks.add_task(
-            _log_usage,
-            virtual_key, model, provider,
-            input_tokens, output_tokens,
-            status, pricing_data, latency_ms,
+            _log_usage, virtual_key, model, provider,
+            input_tokens, output_tokens, status, pricing_data, latency_ms,
         )
 
-        # Build response, filtering out hop-by-hop headers
         safe_headers = {
             k: v for k, v in resp_headers.items()
             if k.lower() not in ("content-encoding", "transfer-encoding", "connection")
         }
-        safe_headers["X-TLG-Key"] = virtual_key.name
+        safe_headers["X-TLG-Virtual-Key"] = virtual_key.name
 
         return JSONResponse(
             status_code=status_code,
@@ -340,12 +361,11 @@ async def _handle_non_streaming(
             headers=safe_headers,
         )
 
-    except Exception as e:
-        logger.error(f"Non-streaming forward error: {e}")
+    except Exception as exc:
+        logger.error("Non-streaming forward error: %s", exc)
         latency_ms = int((time.monotonic() - start_time) * 1000)
         background_tasks.add_task(
-            _log_usage,
-            virtual_key, model, provider,
-            input_tokens, 0, "error", pricing_data, latency_ms, str(e),
+            _log_usage, virtual_key, model, provider,
+            input_tokens, 0, "error", pricing_data, latency_ms, str(exc),
         )
-        return _error_response(502, f"Upstream error: {str(e)}", "upstream_error")
+        return _error_response(502, f"Upstream error: {exc}", "upstream_error")
