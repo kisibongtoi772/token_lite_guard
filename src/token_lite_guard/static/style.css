@@ -566,6 +566,11 @@ tbody td { padding: 11px 14px; vertical-align: middle; }
 .stat-accent-amber::before { background: #d29922; }
 .stat-accent-purple::before { background: #8b5cf6; }
 
+.stat-accent-blue { background: linear-gradient(150deg, rgba(88, 166, 255, 0.08) 0%, rgba(17, 20, 24, 1) 60%); }
+.stat-accent-green { background: linear-gradient(150deg, rgba(63, 185, 80, 0.07) 0%, rgba(17, 20, 24, 1) 60%); }
+.stat-accent-amber { background: linear-gradient(150deg, rgba(210, 153, 34, 0.08) 0%, rgba(17, 20, 24, 1) 60%); }
+.stat-accent-purple { background: linear-gradient(150deg, rgba(139, 92, 246, 0.08) 0%, rgba(17, 20, 24, 1) 60%); }
+
 .premium-stat-card:hover {
   border-color: rgba(255, 255, 255, 0.1);
   transform: translateY(-1px);
