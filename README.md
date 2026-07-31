@@ -2,6 +2,8 @@
 
 A lightweight, local AI Gateway that enforces token budgets for AI agents and development tools.
 
+![Token Lite Guard Dashboard](docs/assets/dashboard.png)
+
 It acts as a transparent reverse proxy between your AI tools (Cursor, Continue, AutoGPT, LangChain agents, etc.) and LLM providers (OpenAI, Anthropic, Google, and others). Each incoming request is authenticated against a virtual API key, checked against its configured token budget, forwarded to the real provider, and logged — all in a single process with no external dependencies.
 
 ---
@@ -26,14 +28,15 @@ It acts as a transparent reverse proxy between your AI tools (Cursor, Continue, 
 
 ## Features
 
-- **Budget enforcement** — Hard stop (HTTP 429) when a virtual key's token budget is exhausted
-- **Virtual API keys** — Issue multiple `tlg-` prefixed keys, each with its own budget and provider assignment
-- **Multi-provider support** — 11 built-in providers; add any OpenAI-compatible endpoint as a custom provider
-- **Streaming support** — Full SSE streaming passthrough with concurrent token counting
-- **Cost estimation** — USD cost estimates based on a built-in pricing table for 40+ models
-- **Management dashboard** — Web UI for key management, usage charts, provider status, and activity logs
-- **Zero external dependencies** — SQLite only; no Docker, Redis, or PostgreSQL required
-- **Auto-detection** — Provider inferred from model name when not specified explicitly
+- **Budget Enforcement**: Hard stops (HTTP 429) when a virtual key's token budget is exhausted to protect your primary API balances.
+- **Virtual API Keys**: Issue multiple isolated keys, each with its own budget constraint and provider assignment.
+- **Multi-Provider Architecture**: Native support for 11 major providers out-of-the-box, plus the ability to add any OpenAI-compatible endpoint as a custom provider.
+- **Dynamic Configuration**: Configure and manage provider API keys directly via the dashboard without needing to restart the server or edit `.env` files.
+- **Streaming Passthrough**: Full Server-Sent Events (SSE) streaming support with concurrent, real-time token counting.
+- **Cost Estimation**: Automatic USD cost estimates based on a built-in pricing table for over 40 mainstream models.
+- **Management Dashboard**: A premium, minimalist SaaS-inspired web UI for key management, real-time usage charts, provider status, and detailed activity logs.
+- **Zero External Dependencies**: Operates entirely on SQLite; no Docker, Redis, or PostgreSQL required.
+- **Intelligent Auto-Detection**: Automatically infers the correct provider from the model name when not specified explicitly in the payload.
 
 ---
 
