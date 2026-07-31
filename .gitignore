@@ -1,0 +1,47 @@
+# ─── Python cache ────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+*.pyo
+
+# ─── Virtual environments ────────────────────────────────────────
+.venv/
+venv/
+env/
+.env/
+
+# ─── Environment / secrets ──────────────────────────────────────
+.env
+*.env.local
+
+# ─── Database (runtime data) ────────────────────────────────────
+data/
+*.db
+*.sqlite
+*.sqlite3
+
+# ─── Build artifacts ─────────────────────────────────────────────
+dist/
+build/
+*.egg-info/
+.eggs/
+
+# ─── IDE ─────────────────────────────────────────────────────────
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+
+# ─── OS ──────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ─── Testing ─────────────────────────────────────────────────────
+.pytest_cache/
+.coverage
+htmlcov/
+
+# ─── Logs ────────────────────────────────────────────────────────
+*.log
+logs/

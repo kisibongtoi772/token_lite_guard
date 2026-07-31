@@ -1,0 +1,53 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "token-lite-guard"
+version = "0.1.0"
+description = "A lightweight AI Gateway that protects your LLM budget by intercepting and monitoring token usage in real-time"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+authors = [{ name = "kisibongtoi772" }]
+keywords = ["ai", "gateway", "proxy", "llm", "openai", "token", "budget"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "sqlmodel>=0.0.22",
+    "tiktoken>=0.8.0",
+    "httpx>=0.28.0",
+    "python-dotenv>=1.0.0",
+    "aiosqlite>=0.20.0",
+    "greenlet>=3.0.0",
+    "pydantic-settings>=2.6.0",
+    "python-multipart>=0.0.20",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.24.0",
+    "httpx>=0.28.0",
+]
+
+[project.scripts]
+token-lite-guard = "token_lite_guard.main:run"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/token_lite_guard"]
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

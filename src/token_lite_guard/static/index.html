@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>token_lite_guard — AI Gateway Dashboard</title>
+  <meta name="description" content="Protect your LLM budget. Monitor token usage, manage virtual API keys, and enforce spending limits for AI agents in real-time." />
+  <link rel="stylesheet" href="/static/style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+<div class="app">
+
+  <!-- ─── Header ─────────────────────────────────────────────── -->
+  <header class="header">
+    <a href="/" class="logo">
+      <div class="logo-icon">🛡️</div>
+      <div class="logo-text">token_<span>lite</span>_guard</div>
+    </a>
+    <div class="header-right">
+      <div class="status-badge">
+        <div class="status-dot"></div>
+        <span id="server-status">Gateway Active</span>
+      </div>
+      <button id="btn-new-key" class="btn btn-primary" onclick="openCreateModal()">
+        <span>＋</span> New Key
+      </button>
+    </div>
+  </header>
+
+  <!-- ─── Main ───────────────────────────────────────────────── -->
+  <main class="main">
+
+    <!-- Page title -->
+    <h1 class="page-title">Dashboard</h1>
+    <p class="page-subtitle" id="last-refresh">Loading overview...</p>
+
+    <!-- ─── Stats Cards ──────────────────────────────────────── -->
+    <div class="stats-grid" id="stats-grid">
+      <div class="stat-card blue">
+        <div class="stat-icon blue">🔢</div>
+        <div class="stat-label">Total Tokens</div>
+        <div class="stat-value" id="stat-total-tokens">—</div>
+        <div class="stat-sub" id="stat-tokens-today">— today</div>
+      </div>
+      <div class="stat-card purple">
+        <div class="stat-icon purple">💰</div>
+        <div class="stat-label">Estimated Cost</div>
+        <div class="stat-value" id="stat-total-cost">—</div>
+        <div class="stat-sub">All time (USD)</div>
+      </div>
+      <div class="stat-card green">
+        <div class="stat-icon green">🔑</div>
+        <div class="stat-label">Active Keys</div>
+        <div class="stat-value" id="stat-active-keys">—</div>
+        <div class="stat-sub">Virtual API keys</div>
+      </div>
+      <div class="stat-card orange">
+        <div class="stat-icon orange">⚡</div>
+        <div class="stat-label">Requests Today</div>
+        <div class="stat-value" id="stat-requests-today">—</div>
+        <div class="stat-sub" id="stat-blocked-today">— blocked</div>
+      </div>
+    </div>
+
+    <!-- ─── Charts + Sidebar ─────────────────────────────────── -->
+    <div class="content-grid">
+
+      <!-- Chart Panel -->
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">📈 Token Consumption</span>
+          <div class="tabs" style="margin-bottom:0; flex:0;">
+            <button class="tab active" onclick="changeChartRange(7, this)">7d</button>
+            <button class="tab" onclick="changeChartRange(14, this)">14d</button>
+            <button class="tab" onclick="changeChartRange(30, this)">30d</button>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div class="chart-container">
+            <canvas id="usage-chart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick stats sidebar -->
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">🔥 Top Models</span>
+          <button class="btn btn-ghost btn-sm" onclick="loadModelStats()">↻ Refresh</button>
+        </div>
+        <div class="panel-body" id="model-stats-body">
+          <div class="empty-state">
+            <div class="empty-state-icon">📊</div>
+            <div class="empty-state-text">No data yet</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── Virtual Keys Table ────────────────────────────────── -->
+    <div class="panel" style="margin-bottom: 24px;">
+      <div class="panel-header">
+        <span class="panel-title">🔑 Virtual API Keys</span>
+        <div style="display:flex; gap:8px;">
+          <button class="btn btn-ghost btn-sm" onclick="loadKeys()">↻ Refresh</button>
+          <button class="btn btn-primary btn-sm" onclick="openCreateModal()">＋ New Key</button>
+        </div>
+      </div>
+      <div class="table-wrapper">
+        <table id="keys-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Key</th>
+              <th>Provider</th>
+              <th>Budget Usage</th>
+              <th>Status</th>
+              <th>Created</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="keys-tbody">
+            <tr><td colspan="7" style="text-align:center; padding:32px; color:var(--text-muted);">Loading keys...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ─── Recent Activity Log ───────────────────────────────── -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">📋 Recent Activity</span>
+        <button class="btn btn-ghost btn-sm" onclick="loadRecentLogs()">↻ Refresh</button>
+      </div>
+      <div class="panel-body" id="logs-body">
+        <div class="empty-state">
+          <div class="empty-state-icon">📭</div>
+          <div class="empty-state-text">No recent activity</div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- ─── Create Key Modal ──────────────────────────────────────── -->
+<div class="modal-overlay" id="create-modal" onclick="handleModalOverlayClick(event)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-title">Create Virtual API Key</div>
+      <button class="modal-close" onclick="closeCreateModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label" for="new-key-name">Key Name</label>
+        <input
+          id="new-key-name"
+          class="form-input"
+          type="text"
+          placeholder="e.g. cursor-dev, agent-prod"
+          maxlength="100"
+        />
+        <div class="form-hint">A human-readable label for this key</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="new-key-provider">Provider</label>
+        <select id="new-key-provider" class="form-select">
+          <option value="openai">OpenAI (gpt-*)</option>
+          <option value="anthropic">Anthropic (claude-*)</option>
+          <option value="auto">Auto-detect from model name</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="new-key-budget">Token Budget</label>
+        <input
+          id="new-key-budget"
+          class="form-input"
+          type="number"
+          placeholder="100000"
+          min="0"
+          value="100000"
+        />
+        <div class="form-hint">0 = unlimited. When exhausted, requests return HTTP 429.</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="new-key-notes">Notes (optional)</label>
+        <input
+          id="new-key-notes"
+          class="form-input"
+          type="text"
+          placeholder="What is this key used for?"
+          maxlength="500"
+        />
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeCreateModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="createKey()" id="btn-create-key">
+        Create Key
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ─── Edit Key Modal ────────────────────────────────────────── -->
+<div class="modal-overlay" id="edit-modal" onclick="handleEditOverlayClick(event)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-title">Edit Key</div>
+      <button class="modal-close" onclick="closeEditModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="edit-key-id" />
+      <div class="form-group">
+        <label class="form-label" for="edit-key-name">Key Name</label>
+        <input id="edit-key-name" class="form-input" type="text" maxlength="100" />
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="edit-key-budget">Token Budget</label>
+        <input id="edit-key-budget" class="form-input" type="number" min="0" />
+        <div class="form-hint">0 = unlimited</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="edit-key-notes">Notes</label>
+        <input id="edit-key-notes" class="form-input" type="text" maxlength="500" />
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeEditModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveKeyEdit()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- ─── Toast container ───────────────────────────────────────── -->
+<div class="toast-container" id="toast-container"></div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
