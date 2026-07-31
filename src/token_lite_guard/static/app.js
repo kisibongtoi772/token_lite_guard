@@ -53,6 +53,7 @@ function switchTab(tabId, btn) {
   if (tabId === 'providers') { loadBuiltinProviders(); loadCustomProviders(); }
   if (tabId === 'logs') loadRecentLogs();
   if (tabId === 'keys') loadKeys();
+  if (tabId === 'settings') loadSettings();
 }
 
 // ---------------------------------------------------------------------------
@@ -640,6 +641,115 @@ function startAutoRefresh() {
     if (state.activeTab === 'logs') loadRecentLogs();
     else loadRecentLogs(5);
   }, 15_000);
+}
+
+// ---------------------------------------------------------------------------
+// Settings — Provider API key management
+// ---------------------------------------------------------------------------
+
+const PROVIDER_INFO = {
+  openai:    { name: 'OpenAI',          placeholder: 'sk-...',              local: false },
+  anthropic: { name: 'Anthropic',       placeholder: 'sk-ant-...',          local: false },
+  google:    { name: 'Google Gemini',   placeholder: 'AIza...',             local: false },
+  mistral:   { name: 'Mistral AI',      placeholder: 'your-mistral-key',    local: false },
+  groq:      { name: 'Groq',            placeholder: 'gsk_...',             local: false },
+  together:  { name: 'Together AI',     placeholder: 'your-together-key',   local: false },
+  deepseek:  { name: 'DeepSeek',        placeholder: 'sk-...',              local: false },
+  cohere:    { name: 'Cohere',          placeholder: 'your-cohere-key',     local: false },
+  azure:     { name: 'Azure OpenAI',    placeholder: 'your-azure-key',      local: false },
+  ollama:    { name: 'Ollama (Local)',   placeholder: 'No key required',     local: true  },
+  lmstudio:  { name: 'LM Studio (Local)', placeholder: 'No key required',   local: true  },
+};
+
+async function loadSettings() {
+  try {
+    const data = await api.get('/api/settings');
+    const grid = document.getElementById('settings-providers-grid');
+    grid.innerHTML = Object.entries(PROVIDER_INFO).map(([pid, info]) => {
+      const status = data.providers[pid] || {};
+      const isSet = status.api_key_set;
+      const source = status.api_key_source || 'none';
+      const baseUrl = status.base_url || '';
+
+      if (info.local) {
+        return `<div class="card" style="padding:16px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <div><div style="font-size:13px;font-weight:600;">${esc(info.name)}</div><div style="font-size:11px;color:var(--text-muted);">${pid}</div></div>
+            <span class="badge badge-green">Local — No key needed</span>
+          </div>
+          <div class="form-group" style="margin-bottom:8px;">
+            <label class="form-label">Base URL</label>
+            <input id="setting-url-${pid}" class="form-input" type="url" value="${esc(baseUrl)}" placeholder="http://localhost:11434/v1" />
+          </div>
+          <button class="btn btn-secondary btn-sm" onclick="saveProviderUrl('${pid}')">Save URL</button>
+        </div>`;
+      }
+
+      const badge = isSet
+        ? `<span class="badge ${source === 'database' ? 'badge-blue' : 'badge-green'}">${source === 'database' ? 'Set (DB)' : 'Set (env)'}</span>`
+        : `<span class="badge badge-muted">Not configured</span>`;
+
+      return `<div class="card" style="padding:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <div><div style="font-size:13px;font-weight:600;">${esc(info.name)}</div><div style="font-size:11px;color:var(--text-muted);">${pid}</div></div>
+          ${badge}
+        </div>
+        <div class="form-group" style="margin-bottom:8px;">
+          <label class="form-label">API Key</label>
+          <input id="setting-key-${pid}" class="form-input" type="password" placeholder="${isSet ? 'Saved — enter new value to update' : esc(info.placeholder)}" autocomplete="off" />
+        </div>
+        <div class="form-group" style="margin-bottom:12px;">
+          <label class="form-label">Base URL <span style="color:var(--text-muted);font-weight:400;">(optional override)</span></label>
+          <input id="setting-url-${pid}" class="form-input" type="url" value="${esc(baseUrl)}" placeholder="Leave blank to use default" />
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-primary btn-sm" onclick="saveProviderKey('${pid}')">Save</button>
+          ${isSet && source === 'database' ? `<button class="btn btn-ghost btn-sm" onclick="clearProviderKey('${pid}')">Clear from DB</button>` : ''}
+        </div>
+      </div>`;
+    }).join('');
+  } catch (e) {
+    showToast('Failed to load settings: ' + e.message, 'error');
+  }
+}
+
+async function saveProviderKey(pid) {
+  const keyInput = document.getElementById(`setting-key-${pid}`);
+  const urlInput = document.getElementById(`setting-url-${pid}`);
+  const key = keyInput ? keyInput.value.trim() : null;
+  const url = urlInput ? urlInput.value.trim() : null;
+  if (!key && !url) { showToast('Enter an API key or base URL to save', 'error'); return; }
+  try {
+    await api.put(`/api/settings/provider/${pid}`, {
+      provider: pid,
+      api_key: key || undefined,
+      base_url: url || undefined,
+    });
+    showToast(`${PROVIDER_INFO[pid]?.name || pid} settings saved`, 'success');
+    if (keyInput) keyInput.value = '';
+    await loadSettings();
+    await loadBuiltinProviders();
+  } catch (e) { showToast('Failed: ' + e.message, 'error'); }
+}
+
+async function saveProviderUrl(pid) {
+  const urlInput = document.getElementById(`setting-url-${pid}`);
+  const url = urlInput ? urlInput.value.trim() : null;
+  if (!url) { showToast('Enter a base URL to save', 'error'); return; }
+  try {
+    await api.put(`/api/settings/provider/${pid}`, { provider: pid, base_url: url });
+    showToast(`${PROVIDER_INFO[pid]?.name || pid} URL saved`, 'success');
+  } catch (e) { showToast('Failed: ' + e.message, 'error'); }
+}
+
+async function clearProviderKey(pid) {
+  if (!confirm(`Remove the API key for ${PROVIDER_INFO[pid]?.name || pid} from the database?\n\nThe system will fall back to the .env value.`)) return;
+  try {
+    await api.del(`/api/settings/provider/${pid}/key`);
+    showToast('Key cleared from database', 'info');
+    await loadSettings();
+    await loadBuiltinProviders();
+  } catch (e) { showToast('Failed: ' + e.message, 'error'); }
 }
 
 // ---------------------------------------------------------------------------

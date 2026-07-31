@@ -19,6 +19,7 @@ from .proxy.router import router as proxy_router
 from .api.keys import router as keys_router
 from .api.stats import router as stats_router
 from .api.providers import router as providers_router
+from .api.settings import router as settings_router
 from .proxy.forwarder import close_http_client
 
 # ---------------------------------------------------------------------------
@@ -110,6 +111,7 @@ def create_app() -> FastAPI:
     app.include_router(keys_router)       # /api/keys
     app.include_router(stats_router)      # /api/stats
     app.include_router(providers_router)  # /api/providers
+    app.include_router(settings_router)   # /api/settings
 
     if STATIC_DIR.exists():
         app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")

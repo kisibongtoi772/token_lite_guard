@@ -95,6 +95,22 @@ class CustomProvider(SQLModel, table=True):
     output_cost_per_1m: Optional[float] = Field(default=None, description="Override: output cost per 1M tokens")
 
 
+class AppSetting(SQLModel, table=True):
+    """
+    Runtime key-value configuration store.
+
+    Allows users to configure provider API keys via the dashboard UI
+    without editing .env files. Database values take priority over .env.
+    Keys follow the pattern: 'api_key:<provider_id>' or 'base_url:<provider_id>'
+    """
+
+    __tablename__ = "app_settings"
+
+    key: str = Field(primary_key=True, description="Setting key (e.g. api_key:openai)")
+    value: str = Field(default="", description="Setting value (API keys stored in plain text)")
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 # ---------------------------------------------------------------------------
 # Default pricing seed data
 # Sources: provider pricing pages (approximate, subject to change)

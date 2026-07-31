@@ -27,6 +27,7 @@
       <button class="nav-tab" role="tab" onclick="switchTab('keys', this)" id="tab-keys">Virtual Keys</button>
       <button class="nav-tab" role="tab" onclick="switchTab('providers', this)" id="tab-providers">Providers</button>
       <button class="nav-tab" role="tab" onclick="switchTab('logs', this)" id="tab-logs">Activity</button>
+      <button class="nav-tab" role="tab" onclick="switchTab('settings', this)" id="tab-settings">Settings</button>
     </nav>
 
     <div class="header-actions">
@@ -225,6 +226,29 @@
             </tbody>
           </table>
         </div>
+      </div>
+    </div>
+
+    <!-- ===== SETTINGS TAB ===== -->
+    <div class="page-section" id="section-settings">
+      <div class="section-header">
+        <div>
+          <div class="section-title">Provider API Keys</div>
+          <div class="section-subtitle">Enter your API keys here. They are stored locally in the database and take priority over .env values. Keys are never transmitted outside localhost.</div>
+        </div>
+        <button class="btn btn-secondary btn-sm" onclick="loadSettings()">Refresh</button>
+      </div>
+
+      <div id="settings-providers-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px;">
+        <div style="color:var(--text-muted);font-size:13px;">Loading...</div>
+      </div>
+
+      <div style="margin-top:24px;padding:16px;background:var(--bg-surface);border:1px solid var(--border-default);border-radius:var(--radius-lg);font-size:12px;color:var(--text-secondary);line-height:1.6;">
+        <strong style="color:var(--text-primary);display:block;margin-bottom:6px;">How it works</strong>
+        API keys saved here are stored in the local SQLite database (<code>data/token_guard.db</code>).
+        The proxy reads them before checking your <code>.env</code> file, so you do not need to restart the server after saving.
+        Local providers (Ollama, LM Studio) do not require an API key.
+        To remove a key from the database and revert to the <code>.env</code> value, click the clear button.
       </div>
     </div>
 

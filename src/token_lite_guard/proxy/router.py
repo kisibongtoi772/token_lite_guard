@@ -209,7 +209,10 @@ async def proxy(request: Request, path: str, background_tasks: BackgroundTasks):
         upstream_url = build_upstream_url(provider, f"/v1/{path}", custom_base_url=custom_provider.base_url)
         extra_headers = None
     else:
-        real_api_key = settings.get_real_api_key(provider) or ""
+        # Check database settings first (configured via UI), then fall back to .env
+        from ..api.settings import get_setting_by_engine
+        db_api_key = await get_setting_by_engine(f"api_key:{provider}")
+        real_api_key = (db_api_key or settings.get_real_api_key(provider) or "").strip()
         auth_style = settings.get_auth_style(provider)
         extra_headers = None
 
@@ -217,11 +220,16 @@ async def proxy(request: Request, path: str, background_tasks: BackgroundTasks):
             return _error_response(
                 500,
                 f"No API key configured for provider '{provider}'. "
-                f"Set {provider.upper()}_API_KEY in your .env file.",
+                f"Add it in the dashboard under Settings, or set {provider.upper()}_API_KEY in your .env file.",
                 "provider_not_configured",
             )
 
-        upstream_url = build_upstream_url(provider, f"/v1/{path}")
+        # Check for DB base_url override
+        db_base_url = await get_setting_by_engine(f"base_url:{provider}")
+        if db_base_url:
+            upstream_url = build_upstream_url(provider, f"/v1/{path}", custom_base_url=db_base_url)
+        else:
+            upstream_url = build_upstream_url(provider, f"/v1/{path}")
 
         # Azure requires additional query parameters
         if provider == "azure" and settings.azure_openai_api_version:
