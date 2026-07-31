@@ -550,7 +550,21 @@ tbody td { padding: 11px 14px; vertical-align: middle; }
   display: flex;
   flex-direction: column;
   transition: transform 0.2s ease, border-color 0.2s ease;
+  position: relative;
+  overflow: hidden;
 }
+
+.premium-stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; height: 3px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.stat-accent-blue::before { background: #58a6ff; }
+.stat-accent-green::before { background: #3fb950; }
+.stat-accent-amber::before { background: #d29922; }
+.stat-accent-purple::before { background: #8b5cf6; }
 
 .premium-stat-card:hover {
   border-color: rgba(255, 255, 255, 0.1);
