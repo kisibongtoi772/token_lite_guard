@@ -286,11 +286,12 @@ body {
 .stat-accent-amber .stat-value { color: var(--amber); }
 .stat-accent-red   .stat-value { color: var(--red); }
 
-/* ─── Card / Panel ───────────────────────────────────────────── */
+/* ─── Card / Panel (Premium SaaS Dark Mode) ───────────────────── */
 .card {
-  background: var(--bg-surface);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-lg);
+  background: #111418;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 12px;
+  margin-bottom: 24px;
   overflow: hidden;
 }
 
@@ -298,17 +299,17 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 18px;
-  border-bottom: 1px solid var(--border-muted);
+  padding: 20px 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
 }
 
 .card-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-primary);
+  font-size: 15px;
+  font-weight: 500;
+  color: #e6edf3;
 }
 
-.card-body { padding: 18px; }
+.card-body { padding: 24px; }
 
 /* ─── Two-column layout ─────────────────────────────────────── */
 .two-col {
@@ -603,30 +604,7 @@ tbody td { padding: 11px 14px; vertical-align: middle; }
   color: #6e7681;
 }
 
-.premium-card {
-  background: #111418;
-  border: 1px solid rgba(255, 255, 255, 0.04);
-  border-radius: 12px;
-  margin-bottom: 24px;
-}
 
-.premium-card-header {
-  padding: 20px 24px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.premium-card-title {
-  font-size: 15px;
-  font-weight: 500;
-  color: #e6edf3;
-}
-
-.premium-card-body {
-  padding: 24px;
-}
 
 
 /* ─── Modal ──────────────────────────────────────────────────── */

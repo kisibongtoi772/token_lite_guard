@@ -71,28 +71,28 @@
 
       <!-- Chart + top models -->
       <div class="two-col">
-        <div class="premium-card">
-          <div class="premium-card-header">
-            <span class="premium-card-title">Token Consumption</span>
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Token Consumption</span>
             <div class="period-selector">
               <button class="period-btn active" onclick="changeChartRange(7, this)">7d</button>
               <button class="period-btn" onclick="changeChartRange(14, this)">14d</button>
               <button class="period-btn" onclick="changeChartRange(30, this)">30d</button>
             </div>
           </div>
-          <div class="premium-card-body">
+          <div class="card-body">
             <div class="chart-container">
               <canvas id="usage-chart"></canvas>
             </div>
           </div>
         </div>
 
-        <div class="premium-card">
-          <div class="premium-card-header">
-            <span class="premium-card-title">Top Models</span>
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Top Models</span>
             <button class="btn btn-ghost btn-sm" onclick="loadModelStats()">Refresh</button>
           </div>
-          <div class="premium-card-body" id="model-stats-body">
+          <div class="card-body" id="model-stats-body">
             <div class="empty-state">
               <div class="empty-state-title">No data yet</div>
               <div class="empty-state-desc">Usage statistics will appear once requests are proxied.</div>
@@ -102,12 +102,12 @@
       </div>
 
       <!-- Recent activity preview -->
-      <div class="premium-card">
-        <div class="premium-card-header">
-          <span class="premium-card-title">Recent Activity</span>
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Recent Activity</span>
           <button class="btn btn-ghost btn-sm" onclick="loadRecentLogs(); switchTab('logs', document.getElementById('tab-logs'))">View all</button>
         </div>
-        <div class="premium-card-body" style="padding:0;" id="overview-logs-body">
+        <div class="card-body" style="padding:0;" id="overview-logs-body">
           <div class="empty-state">
             <div class="empty-state-title">No activity recorded</div>
             <div class="empty-state-desc">Configure your AI tool to use <code>http://localhost:8000/v1</code> as the base URL.</div>
